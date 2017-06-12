@@ -1,0 +1,90 @@
+#!/bin/bash
+cd $(dirname $0)
+
+if [[ $# -eq 0 ]] ; then
+    echo 'No arguments!'
+    exit 0
+fi
+
+#export LD_LIBRARY_PATH='/d/mw4/u/gd001/usr/src/MeshLabSrc_AllInc_v130a/meshlab/src/distrib'
+export MESHLAB="xvfb-run /d/mw4/u/gd001/usr/src/MeshLabSrc_AllInc_v130a/meshlab/src/distrib/meshlabserver"
+
+function generate_mesh()
+{
+    export PDB="${1}.pdb"
+    export PQR="${1}.pqr"
+    export XYZR="${1}.xyzr"
+    export XYZN="${1}.xyz"
+    export GTS="${1}.gts"
+    /d/mw4/u/gd001/usr/pdb2pqr/pdb2pqr.py --apbs-input --ff=parse $PDB $PQR
+    ./pqrtools.py pqr2xyzr $PQR > $XYZR
+    /d/mw4/u/gd001/usr/bin/msms -probe_radius 1.5 -density 2.4 -if $XYZR -of $1
+    ./gts_utils.py msms2gts $1.vert $1.face ${1}-ref.gts
+    ./gts_utils.py msms2xyzn $1.vert $XYZN
+    $MESHLAB -i $XYZN -o $GTS -s poisson.mlx
+    $MESHLAB -i $GTS -i ${1}-ref.gts -o $GTS -s realign.mlx
+    $MESHLAB -i $GTS -o $GTS -s loop-ls3.mlx
+}
+
+function decimate()
+{
+    #export PQR="${1}.xyzqr" #Born Ion Case
+    export PQR="${1}.pqr" #PDB Case
+    export GTS="${1}.gts"
+    for TARGET_PERCENTAGE in `seq 0.01 0.01 0.09` `seq 0.1 0.1 1`; do
+        DEC_NAME=${1}-${TARGET_PERCENTAGE}
+        cat decimate.mlx | sed "s/TARGET_PERCENTAGE/${TARGET_PERCENTAGE}/" > decimate-replaced.mlx
+        $MESHLAB -i $GTS -o $DEC_NAME.gts -s decimate-replaced.mlx
+        ./prepare.py $DEC_NAME.gts $PQR $DEC_NAME.mtz
+    done
+}
+
+#function smooth_mesh()
+#{
+#    
+#}
+
+function individually()
+{
+    RESULTS_DIR=$2
+    if [ -d "$RESULTS_DIR" ]; then
+        echo "Results directory already exists!"
+        exit 1
+    fi
+    mkdir $RESULTS_DIR
+    for TARGET_PERCENTAGE in `seq 0.01 0.01 0.09` `seq 0.1 0.1 1`; do
+        cat individually.xml | sed "s|MTZ_FILE_NAME|${1}-${TARGET_PERCENTAGE}.mtz|" > individually-replaced.xml
+        /usr/bin/time -o $RESULTS_DIR/timings --append -p ../src/beep/beep --qual 0 --quad 1 --nbsize 500 --kappa 0.0 --planar 0 individually-replaced.xml | tee $RESULTS_DIR/results-${TARGET_PERCENTAGE}.txt
+    done
+}
+
+function run_pairs()
+{
+    RESULTS_DIR=$4
+    if [ -d "$RESULTS_DIR" ]; then
+        echo "Results directory already exists!"
+        exit 1
+    fi
+    mkdir $RESULTS_DIR
+    #for TARGET_PERCENTAGE in `seq 10 10 100`; do
+    for TARGET_PERCENTAGE in `seq 0.01 0.01 0.09` `seq 0.1 0.1 1`; do
+         /usr/bin/time -o $RESULTS_DIR/timings --append -p ./run_pair_${1}.py ${2}-${TARGET_PERCENTAGE}.mtz ${3}-${TARGET_PERCENTAGE}.mtz $RESULTS_DIR/results-${TARGET_PERCENTAGE}.txt
+    done
+    cd $RESULTS_DIR
+    for TARGET_PERCENTAGE in `seq 0.01 0.01 0.09` `seq 0.1 0.1 1`; do tail -n+2 results-$TARGET_PERCENTAGE.txt | cut -d" " -f2 > results-clean-$TARGET_PERCENTAGE.txt; done; paste results-clean-{0.0{1..9},0.{1..9},1.0}.txt > results-all; rm results-clean-{0.0{1..9},0.{1..9},1.0}.txt
+    #for TARGET_PERCENTAGE in `seq 10 10 100`; do tail -n+2 results-$TARGET_PERCENTAGE.txt | cut -d" " -f2 > results-clean-$TARGET_PERCENTAGE.txt; done; paste results-clean-{1..10}0.txt > results-all; rm results-clean-{1..10}0.txt
+    cd -
+}
+
+function run_pairs_dave_mtzs()
+{
+    for DECIMATION_LEVEL in `seq 29 -1 1`; do
+        RESULTS_DIR=`dirname $1`
+        ./run_pair_modified.py ${1}.${DECIMATION_LEVEL}.mtz ${2}.${DECIMATION_LEVEL}.mtz $RESULTS_DIR/results-${DECIMATION_LEVEL}.txt
+    done
+    #for DAVE in `seq 1 29`; do tail -n+2 results-$DAVE.txt | cut -d" " -f2 > results-clean-$DAVE.txt; done; paste results-clean-{1..29}.txt > results-all; rm results-clean-{1..29}.txt
+}
+
+#mv *{.face,.in,-input.p,pdb,pqr,vert,xml,xyz,xyzr,gts} intermediate-files
+
+eval $1 $2 $3 $4 $5 $6
