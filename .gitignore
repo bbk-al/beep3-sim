@@ -1,10 +1,21 @@
 ## Local
+*-old
 *.txt
 *.bsc
 *.png
+*.xyzqr
+*.xyzqrh
 *.mtz
 *.sph
 *.log
+*.dat
+*.out
+*.tex
+*.pid
+
+
+## Apple
+.DS_Store
 
 
 ## Python

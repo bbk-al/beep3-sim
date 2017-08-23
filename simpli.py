@@ -25,7 +25,9 @@ import logging as log
 
 # Set up command line parsing
 parser = argparse.ArgumentParser(description=\
-				'Simplify a surface representation.')
+				'Simplify a surface representation.',
+				epilog="If multiple PERCENT supplied, prepare.py is also " \
+						"run for each case.")
 # -i input gts file
 parser.add_argument('-i', metavar='in-gts', dest='igts', required=True,
                     help='name of input gts file')

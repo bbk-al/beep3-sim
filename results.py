@@ -120,6 +120,11 @@ parser.add_argument('--subsel', default=-1, dest='subsel', type=int,
 					help="subject selector for separations, 0-base index;\n" \
 						"absent or negative for net centre of subjects\n")
 
+# R separation density plots
+parser.add_argument('--sepden', action='store_true', dest='sepden',
+					help="output sepden-r-l-t.txt for R density plot of\n" \
+						"crowder separation distances")
+
 # BEEP scenario configuration files
 parser.add_argument('--bsc', nargs='*', default=None, dest='bsc',
 					metavar="ITS",
@@ -170,7 +175,8 @@ elif args.offset[0:3] == 'zer':
 elif args.offset[0:3] != 'fur':
 	print(f"Unrecognised offset method {args.offset}, defaulting to furthest")
 subsel = args.subsel
-bsccrwd = False if len(args.bsc) > 0 else True  # all crowders? else movers
+# bsc processing:  bsccrwd true to configure all crowders, else movers only
+bsccrwd = True if args.bsc == None or len(args.bsc) == 0 else False
 dropbsc = (None if args.bsc == None \
 			else (args.bsc if len(args.bsc) > 0 else  ['0','-1']))
 plotfigs = ([fgn.name for fgn in Fig] if args.plot == None \
@@ -576,6 +582,22 @@ for l in sorted(lrit):
 			cli[c] = [[cloc[0][n][cd] for n in ctn] for cd in range(3)]
 			clf[c] = [[cloc[-1][n][cd] for n in ctn] for cd in range(3)]
 
+		# Drop out crowder-crowder separation data for R density plotting
+		if args.sepden:
+			with open(f"sepden-{l}-{r}-c.txt", 'w') as f:
+				ctr = 0
+				print(f"initial final", file=f)
+				clip = [cloc[0][n] for n in range(nc)]
+				clfp = [cloc[-1][n] for n in range(nc)]
+				for c1 in range(len(clfp)):
+					for c2 in range(len(clfp)):
+						ctr += 1
+						vi12d = vdiff(clip[c1],clip[c2])
+						ci12d = sqrt(vdot(vi12d,vi12d))
+						vf12d = vdiff(clfp[c1],clfp[c2])
+						cf12d = sqrt(vdot(vf12d,vf12d))
+						print(f"{ctr} {ci12d} {cf12d}", file=f)
+		
 		# Obtain the "centre" of the arena
 		# Centre is a specific subject if subsel set, else average of all
 		if subsel >= 0:
@@ -662,6 +684,7 @@ for l in sorted(lrit):
 			q += [list()]
 			d += [list()]
 			theta += [list()]
+		dcs = list()
 		for n in range(len(cloc)):
 			i = acpt[n]
 			cid = oc[n][0] - len(subjects[0])
@@ -680,22 +703,27 @@ for l in sorted(lrit):
 			if cid > 0:	# There may not be any crowders? Or this is last record
 				tclocn[cid] = list(v[i][-1])	# ...to avoid overwriting cloc
 				tcrotn[cid] = list(q[i][-1])	# ...to avoid overwriting cloc
-			w = [vdiff(tclocn[c], centre) for c in range(len(tclocn))]
-			d[i] += [sum([sqrt(vdot(w[c], w[c])) \
-							for c in range(len(tclocn))]) / max(len(tclocn),1)]
-			#w[i] += [[sum([tclocn[c][cd] for c in range(len(tclocn))]) / \
-			#			max(len(tclocn),1) for cd in range(3)]]
+			ww = [vdiff(tclocn[c], centre) for c in range(len(tclocn))]
+			w = [sqrt(vdot(ww[c], ww[c])) for c in range(len(tclocn))]
+			dcs += [w]
+			d[i] += [sum(w) / max(len(tclocn),1)]
 			theta[i] += [sum([angle(vdiff(tclocn[c],centre),qaxis(tcrotn[c])) \
 							for c in range(len(tcrotn))]) / max(len(tcrotn),1)]
-			#q[i] += [qmult(rot[n],base)]
-			#if i == 0:			# Meaning this move was accepted
-			#	base = q[i][-1]	# Accumulate accepted rotations
 		# Also turn the vector lists inside out so that coordinates are listed
 		vc = [[[vv[n][cd] for n in range(len(vv))] for cd in range(3)] \
 				for vv in v if len(vv) > 0]
-		# Locations relative to centre
-		#wd = [[vdiff(wvv,centre) for wvv in wv] for wv in w]
 						
+		# Drop out crowder-subject separation data for R density plotting
+		if args.sepden:
+			with open(f"sepden-{l}-{r}-s.txt", 'w') as f:
+				ctr = 0
+				print(f"initial final", file=f)
+				clip = dcs[0]
+				clfp = dcs[-1]
+				for c1 in range(len(clfp)):
+					ctr += 1
+					print(f"{ctr} {clip[c1]} {clfp[c1]}", file=f)
+		
 
 		# Directions for axial arrows
 		# Adjust lengths by energy band scaled to 0.2 maximum axis length
@@ -738,9 +766,11 @@ for l in sorted(lrit):
 		# Colour, averages and counts across bands
 		ctc = [c for c in range(len(ps)) if ct[c] != 0]  # Exclude empties
 		ca = [ps[c] for c in ctc]
-		sdd = [sqrt(sdd[c]/(ct[c]-(1 if ct[c]>1 else 0))-(avd[c]/ct[c])**2) \
+		sdd = [sqrt(round(
+				sdd[c]/(ct[c]-(1 if ct[c]>1 else 0))-(avd[c]/ct[c])**2,10)) \
 				for c in ctc]
-		sdt = [sqrt(sdt[c]/(ct[c]-(1 if ct[c]>1 else 0))-(avt[c]/ct[c])**2) \
+		sdt = [sqrt(round(
+				sdt[c]/(ct[c]-(1 if ct[c]>1 else 0))-(avt[c]/ct[c])**2,10)) \
 				for c in ctc]
 		avd = [avd[c]/ct[c] for c in ctc]
 		ave = [ave[c]/ct[c] for c in ctc]
@@ -883,6 +913,8 @@ for r in sep:
 		furthest = len(sep[r][ctr])-1
 		corner += sep[r][ctr][furthest]-sep[r][ctr][0]
 	figures[Fig.s][2] = 'lower right' if corner > 0 else 'upper right'
+	if len(sep[r]) < 2:
+		figures[Fig.s][2] = None
 
 # Plots by location
 (lrec, ec) = (0, 0)	# Colour indices
@@ -942,12 +974,18 @@ for l in sorted(lrit):
 				axe.set_ylabel("Energy")
 				axe.set_title("Proposal and accepted energy evolution")
 			axe = figures[Fig.e][0][k][1]
+			aac = sum([abs(lre[k][i+1]-lre[k][i]) \
+						for i in range(len(lre[k])-1)]) / (len(lre[k])-1)
+			print(f"Average energy change: {aac}")
 			axe.plot(lre[k], c=ps[ec], label="Proposal")
 			axe.plot(lra[k], c=ps[ec], linestyle='dashed', label="Accepted")
 			ec += 1
 			corner = 0.0
-			for x in lre[k]:
-				corner += x-lre[k][0]
+			i90 = round(len(lre[k])*0.9)
+			mida = (max(lre[k])+min(lre[k]))/2
+			for x in lre[k][i90:len(lre[k])]:
+				corner += (x-mida)
+			print(i90,len(lre[k]),mida,corner)
 			figures[Fig.e][2] = 'lower right' if corner > 0 else 'upper right'
 
 		# 3D scatter for proposal positions and energies

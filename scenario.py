@@ -28,6 +28,7 @@ from numpy import arange
 from math import copysign
 from pybeep import Vector, Quaternion
 from io import TextIOWrapper
+from distutils.util import strtobool
 import logging as log
 
 class Scenario:
@@ -61,7 +62,7 @@ class Scenario:
 	# Private class attributes
 	# Subject and Crowder RegExps to scan specification lines
 	#_pdbrest = r'^\s*([0-9][a-z0-9A-Z]{3})'			# PDB RE string
-	_pdbrest = r'^\s*([-a-z0-9A-Z]+)'				# PDB RE string
+	_pdbrest = r'^\s*([-a-z0-9\.A-Z]+)'				# PDB RE string
 	_numrest = r'([+-]?[0-9]+\.?[0-9.]*)'			# Number RE string
 	_seprest = r'\s*,\s*'							# Separator RE string
 	_rngrest = (_numrest + _seprest)*2 + _numrest	# Number triad RE string
@@ -109,6 +110,7 @@ class Scenario:
 			'ArenaRadius': -1,
 			'ArenaGrainSize': 0.0,
 			'ArenaCentre': None,
+			'CrowderRotate': True,
 			'RhoProtein': 1.35,
 			'RhoSolvent': 1.02,
 			'MCwarmup': -1,
@@ -127,6 +129,7 @@ class Scenario:
 			'ArenaRadius': float,
 			'ArenaGrainSize': float,
 			'ArenaCentre': Vector,
+			'CrowderRotate': strtobool,
 			'RhoProtein': float,
 			'RhoSolvent': float,
 			'MCwarmup': int,
@@ -184,6 +187,8 @@ class Scenario:
 				else:
 					log.warning(f"Unrecognised parameter {mp.group(1)}, "
 								f"line {n} -- ignored")
+				log.debug(f"parameter {mp.group(1)}="
+							f"{self.parameters[mp.group(1)]}, line {n}")
 			else:
 				log.warning(f"Invalid line [{n}] in scenario specification: "
 							f"{line} -- ignored")
@@ -243,11 +248,10 @@ class Scenario:
 		tol = 1e-3  # Attempt to allow for just missing the end
 		sign = lambda x: copysign(1, x)
 		(vs, ve, vi) = (float(m.group(s)), float(m.group(e)), float(m.group(i)))
-		if vi == 0.0 and (1-tol)*ve < vs < (1+tol)*ve:
-			return [vs, ve]
-		if vi == 0.0 or sign(vi)*vs >= sign(vi)*ve:  # No tol, arange will be ok
+		# Tolerate the interval being the wrong way round for the increment
+		if vi == 0.0 or sign(vi)*(ve-vs) <= 0:  # arange will now be ok
 			return [vs]
-		return list(arange(vs, ve*(1+tol), vi))
+		return list(arange(vs, ve+(ve-vs)*tol, vi))
 
 	# Assumes matches in the order: sx, sy, sz, ex, ey, ez, ix, iy, iz
 	@staticmethod

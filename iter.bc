@@ -1,0 +1,12 @@
+scale=6;
+n = 1;
+while (1) {
+	i = read();
+	if (i == 0) break;
+	x = read();
+	xe = read();
+	y = read();
+	ye = read();
+	print n, " ", i, " ", (y/x)*10^(6+ye-xe), "\n";
+	n = n + 1;
+}

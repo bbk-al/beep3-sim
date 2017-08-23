@@ -48,6 +48,7 @@ def calculate_mass(pdb: str) -> Tuple[float,Vector]:
 		log.warning(f"Zero mass assumed for {pdb} atom {atom} because {e}")
 	return (mass,com)
 
+# NB, this is gratuitous - use math.fsum instead...
 def calculate_charge(qr: str) -> float:
 	charge = 0.0
 	(c, t) = (0.0, charge) # Kahan correction
@@ -73,8 +74,8 @@ if __name__== "__main__":
 	
 	# Set up command line parsing
 	parser = argparse.ArgumentParser(description=\
-					'Calculate the energy of a complete scenario of '
-					'subject and crowder proteins.')
+					'Provide information on centres and lines of approach '
+					'for PDB specifications.')
 	# -loglevel
 	parser.add_argument('--loglevel', metavar='(INFO|WARNING|ERROR)',
 					dest='loglevel', required=False, default="INFO",
@@ -88,6 +89,9 @@ if __name__== "__main__":
 	# -s
 	parser.add_argument('-s', metavar='s', type=float, dest='s', default=0.0,
 						help='step size')
+	# -m -- previously defaulted to 10.165 seemingly to protect BEEP?
+	parser.add_argument('-m', metavar='m', type=float, dest='m', default=0.0,
+						help='minimum distance')
 	# PDB Ids
 	parser.add_argument('pdblist', metavar='PDB-Id',
 						nargs='+',
@@ -99,6 +103,7 @@ if __name__== "__main__":
 	logstream = args['log']
 	steps = args['n']-1
 	stepsize = args['s']
+	minsep = args['m']
 	pdblist = args['pdblist']
 
 	# Set up logging - if to stdout, assume caller handles time and module name
@@ -128,9 +133,11 @@ if __name__== "__main__":
 	if pdbnum == 2:
 		axis = com[1]-com[0]
 		axis.normalise()
-		coms = com[1]+axis*(10.165+steps*stepsize)
-		come = com[1]+axis*10.165
+		coms = com[1]+axis*(minsep+steps*stepsize)
+		come = com[1]+axis*minsep
 		comi = axis*(-stepsize)
+		sep1 = (come-com[0]).length()
+		sep2 = (coms-com[0]).length()
 		print("")
 		print("Axis information:")
 		vec = [com[0],coms,come,comi]
@@ -138,6 +145,7 @@ if __name__== "__main__":
 		vecstr = [None]*vecnum
 		for i in range(vecnum):
 			vecstr[i] = f"({vec[i].x:.4f},{vec[i].y:.4f},{vec[i].z:.4f})"
-		print(f"{pdblist[0]}={vecstr[0]},{vecstr[0]},(2,0,0)")
-		print(f"{pdblist[1]}={vecstr[1]},{vecstr[2]},{vecstr[3]}")
+		print(f"{pdblist[0]} location={vecstr[0]},{vecstr[0]},(2,0,0)")
+		print(f"{pdblist[1]} location={vecstr[1]},{vecstr[2]},{vecstr[3]}")
+		print(f"Separations: {sep1} to {sep2}")
 

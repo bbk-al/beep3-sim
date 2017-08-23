@@ -26,6 +26,7 @@ __all__ = [
 from os import environ as env, chdir, getcwd, remove, path, sep as pathsep
 from typing import Iterable, Tuple
 import argparse
+import re
 from io import TextIOWrapper
 import logging as log
 import subprocess
@@ -39,6 +40,7 @@ import time
 Pipeline = Iterable[Tuple]
 
 # Global variables
+quote = re.compile(r"'")
 
 # Functions
 
@@ -53,7 +55,6 @@ def runCommand(cmd: str, dummy = False) -> int:
 	invocation (this is necessary because some commands are relative to this
 	location).  Filenames on the command line must therefore be absolute.
 	"""
-	echo = "echo " if (dummy) else "" 
 	cwd = getcwd()
 	here = path.dirname(path.realpath(__file__))
 	chdir(here)
@@ -63,6 +64,10 @@ def runCommand(cmd: str, dummy = False) -> int:
 	retcode = -1
 	log.info("---")  # Separator line in logfile
 	log.info(cmd)
+	echo = ""
+	if dummy:
+		echo = "echo "
+		cmd = "'" + quote.sub("''", cmd) + "'"
 	try:
 		p = subprocess.Popen(echo + cmd, shell=True, env = env,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -190,8 +195,7 @@ if __name__== "__main__":
 
 	# Set up command line parsing
 	parser = argparse.ArgumentParser(description=\
-					'Calculate the energy of a complete scenario of '
-					'subject and crowder proteins.')
+					'Prepare files for a BEEP scenario.')
 	# -p pipeline config file
 	parser.add_argument('-p', metavar='pipeline', type=argparse.FileType('r'),
 						dest='pipeline', default='pipeline.cfg',
@@ -224,14 +228,15 @@ if __name__== "__main__":
 	dummy = args['dummy']
 	pdbidlist = args['pdbidlist']
 
-	# Set up logging
-	log.basicConfig(filename="pipeline.log", filemode='w',
-	                format="%(asctime)s %(levelname)s:%(message)s",
-	                level=getattr(log, loglevel.upper()))
-
 	# Interpret workdir as an absolute path
 	if workdir[0] != pathsep:
 		workdir = path.join(env['PWD'], workdir)
+
+	# Set up logging
+	logfile = workdir+pathsep+"pipeline.log"
+	log.basicConfig(filename=logfile, filemode='w',
+	                format="%(asctime)s %(levelname)s:%(message)s",
+	                level=getattr(log, loglevel.upper()))
 
 	# Read the pipeline
 	pipeline = readPipeline(pcfg)
@@ -247,5 +252,6 @@ if __name__== "__main__":
 			exit(1)
 
 	# Exit cleanly
+	print(f"See {logfile}")
 	exit(0)
 

@@ -199,8 +199,8 @@ class PackedSphereArena(Arena):
 				c = self._pso[ref][0]
 				if c == 0:	# unoccupied
 					continue
-				if c > 0:	# subject - use id for colour
-					c = self._pso[ref][1]
+				if c > 0:	# subject - decrement to get to library id
+					c -= 1
 				v = self._psa[ref]
 				print(f"{r} {v.x:.3f} {v.y:.3f} {v.z:.3f} {c} {s:.3f}", file=f)
 				r += 1

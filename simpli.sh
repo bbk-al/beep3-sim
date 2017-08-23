@@ -81,7 +81,7 @@ do
 	done
 
 	# Run phase1.py as normal
-	$TOOLS/phase1.py -p $TOOLS/pipeline.cfg -s test.bsc -o $RESULTS/results.dat -w $RESULTS --loglevel DEBUG >>$OUT
+	$TOOLS/phase1.py -p $TOOLS/pipeline.cfg -s ${BSC:-test.bsc} -o $RESULTS/results.dat -w $RESULTS --loglevel DEBUG >>$OUT
 
 	for pdb in $PDBLIST
 	do

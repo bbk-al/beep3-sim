@@ -41,12 +41,13 @@ of the form <parameter>=<value>:
 Parameter	& Meaning						& Default value
 ArenaRadius	& Radius of arena				& 3x maximum subject separation	\\
 ArenaGrainSize	& e.g. radius of packed sphere*	& Largest crowder radius	\\
+CrowderRotate	& Randomly rotate crowders	& True
 RhoProtein	& Default density of protein	& 1.35 (g/cm3)	\\
 RhoSolvent	& Density of solvent			& 1.02 (g/cm3)	\\
 MCwarmup	& Discounted MC iterations		& 10x crowder count	\\
 MCiter		& Maximum total MC iterations	& 40x crowder count	\\
-DSolvent	& Dielectric for solvent		& 80.0	\\
-DProtein	& Dielectric for protein		& 2.0	\\
+Dsolvent	& Dielectric for solvent		& 80.0	\\
+Dprotein	& Dielectric for protein		& 2.0	\\
 Kappa		& Debye screening parameter**	& 0.102	\\
 GMREStol	& GMRES solver tolerance**		& 1e-6	\\
 GMRESmaxit	& GMRES max iterations**		& 100	\\
@@ -331,10 +332,9 @@ log.info("BEEP library loaded")
 
 # Arena initialisation
 # Calculate packed sphere radius
-#[TBD] Futures...minimum separation => enlarged spheres by sep/2
-a = maxcr  # packed sphere radius
+a = scenario.parameters['ArenaGrainSize']
 if a == 0.0:
-	a = scenario.parameters['ArenaGrainSize']
+	a = maxcr  # packed sphere radius
 if a == 0.0 or a > scenario.radius:	# Having no crowders is ok, use arena size
 	a = scenario.radius
 
@@ -396,7 +396,7 @@ for l in range(locnLen):
 				 f"at {scenario.locnlist[s][l]}, "
 				 f"rotation {scenario.rotnlist[s][l]}")
 		try:
-			psa.insertMesh(beep.get_mesh_instance(s), 1, s) # Type 1 = subjects
+			psa.insertMesh(beep.get_mesh_instance(s), 1+lib[s], s) # + => subj
 		except CollisionError:
 			#TODO improve error messages!
 			log.error(f"Occupancy error for mesh {s} location {l}")
@@ -443,10 +443,10 @@ for l in range(locnLen):
 					v = psa.vacancy(random.randrange(vc))  # Vacant slot
 					oid = beep.get_instance_id(psa.getLocation(v), -1)
 					if oid >= 0:
-						psa.occupy(v, 1, oid)	# Assume subject from context
+						psa.occupy(v, 1+lib[oid], oid)	# subject from context
 					else:
-						# occupy with type -1 to indicate a crowder
-						(cloc[cid], cref[cid]) = (psa.occupy(v, -1, cid), v)
+						# occupy with negative type to indicate a crowder
+						(cloc[cid], cref[cid]) = (psa.occupy(v, -1-c, cid), v)
 						break
 					vc = psa.capacity()  # Refresh vacant capacity
 				else:
@@ -454,7 +454,8 @@ for l in range(locnLen):
 					raise ValueError
 				# Either cloc and cref are set now or an exception raised...
 				ctyp[cid] = c					# crowder species
-				crot[cid] = Quaternion.rand()	# crowder rotation
+				crot[cid] = Quaternion.rand() \
+					if scenario.parameters['CrowderRotate'] else no_rotation
 				# Add to BEEP
 				log.debug(f"Insert {scenario.crwdlist[c]} instance {cid} "
 						  f"library id {lib[cbase+c]} "
@@ -490,7 +491,7 @@ for l in range(locnLen):
 
 		# Calculate initial energy
 		log.info(f"BEEP solve... initial")
-		beep.reset_fh_vals()
+		#beep.reset_fh_vals()	# TODO this call is now unnecessary - prove it
 		beep.solve(scenario.parameters['GMREStol'], \
 					scenario.parameters['GMRESmaxit'])
 		#beep.reset_library_fh_vals()
@@ -498,6 +499,7 @@ for l in range(locnLen):
 		gc.collect()
 		log.debug(f"Process size {getrusage(RUSAGE_SELF).ru_maxrss/1000}, "
 				  f"python size {getallocatedblocks()}")
+		log.debug(f"Energy is now {this_energy}")
  
 		# Drop out kinemages and/or plots of the starting point
 		if dropkin and l == 0:
@@ -517,14 +519,15 @@ for l in range(locnLen):
 					v = psa.vacancy(random.randrange(vc))  # Vacant slot
 					oid = beep.get_instance_id(psa.getLocation(v), c)
 					if oid >= 0 and oid != c:	# oid will not be c!
-						psa.occupy(v, 1, oid)	# Assume subject from context
+						psa.occupy(v, 1+lib[oid], oid)	# subject from context
 					else:
 						(location, ref) = psa.move(cref[c], to=v)
 						break
 					vc = psa.capacity()  # Refresh vacant capacity
 				else:
 					location = cloc[c]
-				rotation = Quaternion.rand()
+				rotation = Quaternion.rand() \
+					if scenario.parameters['CrowderRotate'] else no_rotation
 				log.info(f"[{it}] Propose move instance {c} at {cloc[c]} "
 						 f"to {location}, rotating by {rotation}")
 
@@ -535,7 +538,7 @@ for l in range(locnLen):
 			# Calculate new energy
 			if solve:
 				log.debug(f"BEEP solve... {it}")
-				beep.reset_fh_vals()
+				#beep.reset_fh_vals()	# TODO call now unnecessary - prove it
 				beep.solve(scenario.parameters['GMREStol'], \
 						scenario.parameters['GMRESmaxit'])
 				#beep.reset_library_fh_vals()
