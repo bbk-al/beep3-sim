@@ -123,7 +123,8 @@ parser.add_argument('--subsel', default=-1, dest='subsel', type=int,
 # R separation density plots
 parser.add_argument('--sepden', action='store_true', dest='sepden',
 					help="output sepden-r-l-t.txt for R density plot of\n" \
-						"crowder separation distances")
+						"crowder separation distances s for l-location,\n" \
+                        "r-run and t-type (s(ubject),c(rowder))")
 
 # BEEP scenario configuration files
 parser.add_argument('--bsc', nargs='*', default=None, dest='bsc',
@@ -896,10 +897,10 @@ for r in sep:
 	if not r in figures[Fig.s][0]:
 		figures[Fig.s][0][r] = plt.subplots()
 		axs = figures[Fig.s][0][r][1]
+		#axs.set_ylim([-133,55]) # temporary scale matching!
 		axs.set_xlabel("Separation (A)")
 		axs.set_ylabel(ylab)
 		axs.set_title("Subject energy " + forsubjpdbs)
-		#axs.set_ylim([-25,65])
 	axs = figures[Fig.s][0][r][1]
 
 	# Plot the energy by separations per repeat

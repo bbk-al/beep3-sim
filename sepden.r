@@ -82,7 +82,7 @@ if (argv$subject) {
 } else {
 	partner <- "crowder"
 }
-plot(xyi,,ylim=yr,col=ci,main=paste(mt," of crowder-",partner," separations", sep=""))
+plot(xyi,ylim=yr,col=ci,xlab=expression(paste("Separation (",ring(A),")",sep="")),main=paste(mt," of crowder-",partner," separations", sep=""))
 if (argv$hist) {
 	plot(xyf,col=cf,add=T)
 } else {

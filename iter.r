@@ -24,9 +24,9 @@ suppressPackageStartupMessages({
 require('Hmisc')
 require('argparser')
 })
-p <- arg_parser("Plot iteration convergence data")
+p <- arg_parser("Plot iteration convergence data.  Note: if a directory is specified, if energies.dat exists, error margins are plotted instead of raw convergence levels.")
 p <- add_argument(p,
-        c("--file", "--maxi", "--escale", "--xlabel", "--scale"),
+        c("--file", "--maxi", "--ecomp", "--xlabel", "--scale"),
         help = c("iter data file", "maximum GMRES iteration count",
 				"error axis multiplier", "x-axis label", "x value multiplier"),
 		default=list(file=".", maxi=0, elim=1, xlabel="Iteration", scale=1),
@@ -93,7 +93,7 @@ if (efile == "") {
 	z <- abs(e/di$convergence)
 	mt <- expression(paste("Error (kJ ", mol^{-1}, ")", sep=""))
 }
-elim <- range(c(z,z*argv$escale),na.rm=TRUE)
+elim <- range(c(z,z*argv$ecomp),na.rm=TRUE)
 par(new=TRUE)
 plot(x,z,ty="l",log="y",ylim=elim,col="blue",axes = FALSE,bty = "n",
 	 xlab = "",ylab = "")
